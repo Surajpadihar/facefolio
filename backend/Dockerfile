@@ -12,7 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# insightface pulls in opencv-python (needs X11/libGL); swap it for the headless
+# build so we don't have to ship GUI system libraries.
+RUN pip install --upgrade pip \
+    && pip install -r requirements.txt \
+    && pip uninstall -y opencv-python \
+    && pip install --no-cache-dir opencv-python-headless
 
 COPY . .
 

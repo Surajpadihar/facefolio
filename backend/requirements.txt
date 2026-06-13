@@ -19,6 +19,14 @@ boto3>=1.34
 # Media / QR
 Pillow>=10.4
 qrcode[pil]>=7.4
+pillow-heif>=1.4          # HEIC/HEIF decode (iPhone photos) — INDEX-03
+
+# Face recognition (Phase 3+). buffalo_l = 512-dim L2-normalized ArcFace embeddings.
+# NOTE: buffalo_l weights are non-commercial/research-only — blocks future paid features.
+insightface>=1.0.1
+onnxruntime>=1.26         # CPU inference; GPU is a drop-in swap (onnxruntime-gpu)
+# opencv (insightface dep) is replaced with the headless build in the Dockerfile
+# to avoid X11/libGL system libs on the server image.
 
 # Config / serving
 python-dotenv>=1.0

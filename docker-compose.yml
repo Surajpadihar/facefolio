@@ -69,6 +69,7 @@ services:
     volumes:
       - ./backend:/app
       - static_volume:/app/staticfiles
+      - insightface_models:/root/.insightface   # cache buffalo_l across rebuilds (selfie search, Phase 4)
     ports:
       - "8088:8000"
     depends_on:
@@ -85,6 +86,7 @@ services:
     env_file: .env
     volumes:
       - ./backend:/app
+      - insightface_models:/root/.insightface   # cache buffalo_l face model across rebuilds
     depends_on:
       db:
         condition: service_healthy
@@ -108,3 +110,4 @@ services:
 
 volumes:
   static_volume:
+  insightface_models:
