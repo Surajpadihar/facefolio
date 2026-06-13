@@ -15,8 +15,8 @@ from accounts.permissions import IsApprovedPhotographer
 from .models import Event
 from .serializers import EventSerializer
 
-# Accepted image content types for upload.
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+# Accepted image content types for upload (HEIC/HEIF for iPhone photos — INDEX-03).
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 
 class EventViewSet(viewsets.ModelViewSet):

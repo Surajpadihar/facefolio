@@ -9,6 +9,7 @@ from .storage import public_presigned_get
 class PhotoSerializer(serializers.ModelSerializer):
     original_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    face_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Photo
@@ -21,10 +22,15 @@ class PhotoSerializer(serializers.ModelSerializer):
             "height",
             "original_url",
             "thumbnail_url",
+            "face_count",
             "error",
             "created_at",
         )
         read_only_fields = fields
+
+    def get_face_count(self, obj: Photo) -> int:
+        # Uses the prefetched/annotated count when available, else falls back to a query.
+        return getattr(obj, "face_count", None) or obj.faces.count()
 
     def get_original_url(self, obj: Photo) -> str | None:
         return public_presigned_get(obj.original.name) if obj.original else None

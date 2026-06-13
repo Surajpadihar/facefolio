@@ -45,6 +45,11 @@ def process_photo(self, photo_id: int) -> str:
         photo.status = Photo.Status.READY
         photo.error = ""
         photo.save(update_fields=["thumbnail", "width", "height", "status", "error", "updated_at"])
+
+        # Hand off to face indexing (READY → INDEXED).
+        from faces.tasks import index_photo
+
+        index_photo.delay(photo.pk)
         return "ready"
     except Exception as exc:  # noqa: BLE001 — record failure, never leave a silent unknown state
         photo.status = Photo.Status.FAILED
