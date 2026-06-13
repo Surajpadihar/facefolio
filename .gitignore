@@ -30,3 +30,6 @@ data/
 # IDE
 .idea/
 .vscode/
+
+# GSD planning docs — kept local, not published
+.planning/
