@@ -83,11 +83,11 @@ function EventDetail() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-1">
+        <div className="min-w-0 space-y-6 lg:col-span-1">
           <QrCard eventId={id} guestUrl={event.guest_url} />
           <CollaboratorsCard eventId={id} />
         </div>
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           <UploadCard eventId={id} onUploaded={() => { refreshPhotos(); startPolling(); }} />
           <PhotosCard photos={photos} onChange={refreshPhotos} />
         </div>
@@ -112,12 +112,12 @@ function QrCard({ eventId, guestUrl }) {
       ) : (
         <div className="mx-auto grid h-44 w-44 place-items-center rounded-lg bg-slate-100 text-slate-400">…</div>
       )}
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         {qr && (
-          <a href={qr} download={`event-${eventId}-qr.png`} className="btn-ghost flex-1">Download PNG</a>
+          <a href={qr} download={`event-${eventId}-qr.png`} className="btn-ghost flex-1 whitespace-nowrap">Download PNG</a>
         )}
         <button
-          className="btn-ghost flex-1"
+          className="btn-ghost flex-1 whitespace-nowrap"
           onClick={() => {
             navigator.clipboard?.writeText(guestUrl);
             setCopied(true);
