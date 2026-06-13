@@ -6,8 +6,12 @@ used for one pgvector query, and never written to a model, queued to Celery, or 
 
 from __future__ import annotations
 
+import zipfile
+from tempfile import SpooledTemporaryFile
+
 from django.conf import settings
 from django.db import connection
+from django.http import FileResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from pgvector.django import MaxInnerProduct
 from rest_framework import status
@@ -21,6 +25,7 @@ from events.models import Event
 from faces.engine import detect_faces, load_rgb
 from faces.models import FaceEmbedding
 from photos.models import Photo
+from photos.storage import public_presigned_download
 
 from .models import CONSENT_NOTICE_VERSION, ConsentRecord
 from .serializers import MatchSerializer, PublicPhotoSerializer
@@ -178,3 +183,64 @@ class SelfieSearchView(APIView):
                 "matches": MatchSerializer(matches, many=True).data,
             }
         )
+
+
+def _photo_filename(photo: Photo) -> str:
+    base = photo.original_filename or f"photo-{photo.id}.jpg"
+    return f"{photo.id}-{base}"
+
+
+class PhotoDownloadView(APIView):
+    """GET /api/public/events/{token}/photos/{photo_id}/download/ — free single download (DL-01)."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, token, photo_id):
+        event = _get_active_event(token)
+        if event.is_expired:
+            return Response({"detail": "This event has expired."}, status=status.HTTP_410_GONE)
+        photo = get_object_or_404(Photo, id=photo_id, event=event)
+        url = public_presigned_download(photo.original.name, _photo_filename(photo))
+        return HttpResponseRedirect(url)
+
+
+class BulkDownloadView(APIView):
+    """POST /api/public/events/{token}/download-zip/ — download selected/all photos as one ZIP (DL-02/03).
+
+    Body: {"photo_ids": [...]} (omit/empty = all indexed photos). Capped at MAX_BULK_DOWNLOAD.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request, token):
+        event = _get_active_event(token)
+        if event.is_expired:
+            return Response({"detail": "This event has expired."}, status=status.HTTP_410_GONE)
+
+        photo_ids = request.data.get("photo_ids") or []
+        qs = Photo.objects.filter(event=event, status=Photo.Status.INDEXED)
+        if photo_ids:
+            qs = qs.filter(id__in=photo_ids)
+
+        cap = settings.MAX_BULK_DOWNLOAD
+        count = qs.count()
+        if count == 0:
+            return Response({"detail": "No photos to download."}, status=status.HTTP_400_BAD_REQUEST)
+        if count > cap:
+            return Response(
+                {"detail": f"Too many photos ({count}). Select at most {cap} per download."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        spool = SpooledTemporaryFile(max_size=64 * 1024 * 1024)  # spill to disk past 64 MB
+        with zipfile.ZipFile(spool, "w", zipfile.ZIP_STORED) as zf:
+            for photo in qs:
+                photo.original.open("rb")
+                try:
+                    zf.writestr(_photo_filename(photo), photo.original.read())
+                finally:
+                    photo.original.close()
+        spool.seek(0)
+        response = FileResponse(spool, content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="{event.name}-photos.zip"'
+        return response

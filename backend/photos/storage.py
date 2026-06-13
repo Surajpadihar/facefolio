@@ -39,3 +39,19 @@ def public_presigned_get(key: str, expires: int = 3600) -> str | None:
         Params={"Bucket": bucket, "Key": key},
         ExpiresIn=expires,
     )
+
+
+def public_presigned_download(key: str, filename: str, expires: int = 3600) -> str | None:
+    """Presigned GET URL that forces a download with a friendly filename (DL-01)."""
+    if not key:
+        return None
+    bucket = settings.STORAGES["default"]["OPTIONS"]["bucket_name"]
+    return _public_client().generate_presigned_url(
+        "get_object",
+        Params={
+            "Bucket": bucket,
+            "Key": key,
+            "ResponseContentDisposition": f'attachment; filename="{filename}"',
+        },
+        ExpiresIn=expires,
+    )
