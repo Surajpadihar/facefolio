@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "events",
     "photos",
     "faces",
+    "search",
 ]
 
 MIDDLEWARE = [
@@ -110,6 +111,10 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_THROTTLE_RATES": {
+        # Guests are anonymous; cap selfie searches to deter scraping/abuse.
+        "selfie": "20/min",
+    },
 }
 
 SIMPLE_JWT = {
@@ -167,3 +172,17 @@ USE_TZ = True
 FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000")
 DEFAULT_EVENT_RETENTION_DAYS = int(os.environ.get("DEFAULT_EVENT_RETENTION_DAYS", "90"))
 MAX_BULK_DOWNLOAD = int(os.environ.get("MAX_BULK_DOWNLOAD", "100"))
+
+# Face-match similarity threshold (inner product of L2-normalized ArcFace embeddings, range ~[-1, 1]).
+# ⚠️ HUMAN GATE: this default is a STARTING POINT. It MUST be calibrated against a fixture of
+# ~50 known-identity pairs from REAL event photos before trusting match quality. Too low → false
+# matches (stranger sees your photos); too high → misses. See .planning/STATE.md Phase 3 gate.
+FACE_MATCH_THRESHOLD = float(os.environ.get("FACE_MATCH_THRESHOLD", "0.35"))
+
+# --- Celery beat: periodic auto-delete of expired events (PRIV-03) ---
+CELERY_BEAT_SCHEDULE = {
+    "purge-expired-events": {
+        "task": "events.tasks.purge_expired_events",
+        "schedule": 3600.0,  # hourly; the task no-ops when nothing is expired
+    },
+}
