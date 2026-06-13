@@ -1,0 +1,20 @@
+# Adds a reverse proxy + Cloudflare quick tunnel on top of the running dev stack:
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d caddy cloudflared
+# cloudflared prints a public https://<random>.trycloudflare.com URL in its logs.
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    volumes:
+      - ./deploy/Caddyfile.tunnel:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - web
+      - api
+      - minio
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://caddy:80
+    depends_on:
+      - caddy

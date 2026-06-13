@@ -1,0 +1,21 @@
+# HTTP-only reverse proxy for Cloudflare Tunnel (Cloudflare terminates TLS).
+# cloudflared connects to caddy:80 and routes one public URL to the whole stack.
+:80 {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	handle /admin/* {
+		reverse_proxy api:8000
+	}
+	handle /static/* {
+		reverse_proxy api:8000
+	}
+	handle /facefolio-photos/* {
+		reverse_proxy minio:9000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}
