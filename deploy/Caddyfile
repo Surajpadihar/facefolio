@@ -1,0 +1,25 @@
+# Caddy reverse proxy — one HTTPS domain fronts the whole stack.
+# Caddy automatically obtains + renews a free Let's Encrypt certificate for $DOMAIN.
+{$DOMAIN} {
+	encode gzip zstd
+
+	# Django REST API
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	# Django Admin + its static assets (served by WhiteNoise)
+	handle /admin/* {
+		reverse_proxy api:8000
+	}
+	handle /static/* {
+		reverse_proxy api:8000
+	}
+	# MinIO object storage — guest photo presigned URLs live under the bucket path
+	handle /facefolio-photos/* {
+		reverse_proxy minio:9000
+	}
+	# Everything else → Next.js frontend
+	handle {
+		reverse_proxy web:3000
+	}
+}

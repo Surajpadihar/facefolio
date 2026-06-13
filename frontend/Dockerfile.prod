@@ -1,0 +1,18 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Public base URL the browser uses to reach the API — same origin as the site,
+# so calls go through the reverse proxy (no CORS). Injected at build time because
+# Next.js inlines NEXT_PUBLIC_* variables into the client bundle during `next build`.
+ARG NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+
+COPY package.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+EXPOSE 3000
+CMD ["npm", "run", "start"]

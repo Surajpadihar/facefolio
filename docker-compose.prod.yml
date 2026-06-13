@@ -1,0 +1,66 @@
+# Production overrides. Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Only Caddy exposes ports (80/443); everything else talks over the internal network.
+services:
+  db:
+    restart: unless-stopped
+    ports: []
+
+  redis:
+    restart: unless-stopped
+    ports: []
+
+  minio:
+    restart: unless-stopped
+    ports: []
+
+  api:
+    restart: unless-stopped
+    ports: []
+    volumes:
+      - static_volume:/app/staticfiles
+      - insightface_models:/root/.insightface
+
+  worker:
+    restart: unless-stopped
+    volumes:
+      - insightface_models:/root/.insightface
+
+  beat:
+    restart: unless-stopped
+    volumes: []
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_BASE_URL}
+    command: ["npm", "run", "start"]
+    restart: unless-stopped
+    ports: []
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_BASE_URL}
+    volumes: []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+      - minio
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -129,6 +129,14 @@ SIMPLE_JWT = {
 # --- CORS ---
 CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 
+# --- Production / behind reverse proxy (Caddy) ---
+# Origins trusted for unsafe (POST) requests incl. the admin login form over HTTPS.
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+if env_bool("DJANGO_BEHIND_PROXY", False):
+    # Caddy terminates TLS and forwards X-Forwarded-Proto/Host.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
+
 # --- Celery ---
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/1")
