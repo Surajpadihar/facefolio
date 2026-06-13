@@ -161,7 +161,7 @@ function UploadCard({ eventId, onUploaded }) {
   return (
     <div className="card">
       <h3 className="font-semibold">Upload photos</h3>
-      <p className="mb-3 text-sm text-slate-500">JPEG, PNG, WebP or HEIC. Faces are indexed automatically.</p>
+      <p className="mb-3 text-sm text-slate-500">JPEG, PNG, WebP or HEIC · up to 60 per batch, 30&nbsp;MB each · faces indexed automatically.</p>
       <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 px-6 py-8 text-center hover:border-brand-400 hover:bg-brand-50/40">
         <span className="text-sm font-medium text-slate-700">Click to choose photos</span>
         <span className="text-xs text-slate-400">or drag them onto this box</span>

@@ -175,6 +175,11 @@ FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000")
 DEFAULT_EVENT_RETENTION_DAYS = int(os.environ.get("DEFAULT_EVENT_RETENTION_DAYS", "90"))
 MAX_BULK_DOWNLOAD = int(os.environ.get("MAX_BULK_DOWNLOAD", "100"))
 
+# Upload guardrails — keep batches sane so a request never hangs/500s in a demo.
+MAX_UPLOAD_BATCH = int(os.environ.get("MAX_UPLOAD_BATCH", "60"))  # files per upload request
+MAX_UPLOAD_FILE_MB = int(os.environ.get("MAX_UPLOAD_FILE_MB", "30"))  # per-file size cap
+DATA_UPLOAD_MAX_NUMBER_FILES = MAX_UPLOAD_BATCH + 5  # Django's own guard, just above ours
+
 # Face-match similarity threshold (inner product of L2-normalized ArcFace embeddings, range ~[-1, 1]).
 # ⚠️ HUMAN GATE: this default is a STARTING POINT. It MUST be calibrated against a fixture of
 # ~50 known-identity pairs from REAL event photos before trusting match quality. Too low → false

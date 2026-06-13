@@ -108,6 +108,8 @@ class EventViewSet(viewsets.ModelViewSet):
         Accepts one or more files under the ``files`` form field. Each becomes a
         Photo row (status=uploaded) and is queued for thumbnail processing.
         """
+        from django.conf import settings
+
         from photos.models import Photo
         from photos.serializers import PhotoSerializer
         from photos.tasks import process_photo
@@ -119,19 +121,33 @@ class EventViewSet(viewsets.ModelViewSet):
                 {"detail": "No files provided. Send one or more files under the 'files' field."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if len(files) > settings.MAX_UPLOAD_BATCH:
+            return Response(
+                {"detail": f"Please upload up to {settings.MAX_UPLOAD_BATCH} photos at a time "
+                           f"(you sent {len(files)}). Split them into smaller batches."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
+        max_bytes = settings.MAX_UPLOAD_FILE_MB * 1024 * 1024
         created, rejected = [], []
         for f in files:
             if f.content_type not in ALLOWED_IMAGE_TYPES:
                 rejected.append({"filename": f.name, "reason": f"unsupported type {f.content_type}"})
                 continue
-            photo = Photo.objects.create(
-                event=event,
-                uploaded_by=request.user,
-                original=f,
-                original_filename=f.name[:255],
-                status=Photo.Status.UPLOADED,
-            )
+            if f.size and f.size > max_bytes:
+                rejected.append({"filename": f.name, "reason": f"too large (max {settings.MAX_UPLOAD_FILE_MB} MB)"})
+                continue
+            try:
+                photo = Photo.objects.create(
+                    event=event,
+                    uploaded_by=request.user,
+                    original=f,
+                    original_filename=f.name[:255],
+                    status=Photo.Status.UPLOADED,
+                )
+            except Exception:  # noqa: BLE001 — e.g. object storage full; fail this file gracefully, not the request
+                rejected.append({"filename": f.name, "reason": "could not be stored (server storage issue)"})
+                continue
             process_photo.delay(photo.pk)
             created.append(photo)
 
