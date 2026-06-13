@@ -48,6 +48,54 @@ class EventViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = f'inline; filename="event-{event.token}-qr.png"'
         return response
 
+    @action(detail=True, methods=["get", "post"], url_path="collaborators")
+    def collaborators(self, request, pk=None) -> Response:
+        """Manage event collaborators (EVENT-04). Only the owner/superuser can add.
+
+        GET  -> list collaborator usernames.
+        POST {username} -> add an approved photographer as a collaborator.
+        """
+        from django.contrib.auth import get_user_model
+
+        event = self.get_object()
+        if request.method == "GET":
+            return Response({"collaborators": [u.username for u in event.collaborators.all()]})
+
+        if not (request.user.is_superuser or event.owner_id == request.user.id):
+            return Response(
+                {"detail": "Only the event owner can manage collaborators."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        User = get_user_model()
+        username = request.data.get("username")
+        try:
+            collaborator = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({"detail": f"No user '{username}'."}, status=status.HTTP_404_NOT_FOUND)
+        if not collaborator.can_upload:
+            return Response({"detail": "That photographer is not approved yet."}, status=status.HTTP_400_BAD_REQUEST)
+        if collaborator.id == event.owner_id:
+            return Response({"detail": "The owner is already on the event."}, status=status.HTTP_400_BAD_REQUEST)
+        event.collaborators.add(collaborator)
+        return Response({"collaborators": [u.username for u in event.collaborators.all()]}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["delete"], url_path=r"collaborators/(?P<username>[^/]+)")
+    def remove_collaborator(self, request, pk=None, username=None) -> Response:
+        """DELETE /api/events/{id}/collaborators/{username}/ — remove a collaborator (owner only)."""
+        from django.contrib.auth import get_user_model
+
+        event = self.get_object()
+        if not (request.user.is_superuser or event.owner_id == request.user.id):
+            return Response(
+                {"detail": "Only the event owner can manage collaborators."}, status=status.HTTP_403_FORBIDDEN
+            )
+        User = get_user_model()
+        try:
+            event.collaborators.remove(User.objects.get(username=username))
+        except User.DoesNotExist:
+            return Response({"detail": f"No user '{username}'."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(
         detail=True,
         methods=["post"],
