@@ -64,7 +64,7 @@ services:
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
-             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+             gunicorn config.wsgi:application --config /app/gunicorn.conf.py"
     env_file: .env
     volumes:
       - ./backend:/app
@@ -82,7 +82,7 @@ services:
 
   worker:
     build: ./backend
-    command: celery -A config worker --loglevel=info
+    command: celery -A config worker --loglevel=info --concurrency=2
     env_file: .env
     volumes:
       - ./backend:/app
@@ -93,6 +93,18 @@ services:
       redis:
         condition: service_healthy
       minio:
+        condition: service_healthy
+
+  beat:
+    build: ./backend
+    command: celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    env_file: .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   web:
