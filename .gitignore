@@ -33,3 +33,6 @@ data/
 
 # GSD planning docs — kept local, not published
 .planning/
+
+# Local session handoff (private — not published)
+HANDOFF.md
