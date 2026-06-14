@@ -123,8 +123,10 @@ class EventViewSet(viewsets.ModelViewSet):
             )
         if len(files) > settings.MAX_UPLOAD_BATCH:
             return Response(
-                {"detail": f"Please upload up to {settings.MAX_UPLOAD_BATCH} photos at a time "
-                           f"(you sent {len(files)}). Split them into smaller batches."},
+                {
+                    "detail": f"Please upload up to {settings.MAX_UPLOAD_BATCH} photos at a time "
+                    f"(you sent {len(files)}). Split them into smaller batches."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
