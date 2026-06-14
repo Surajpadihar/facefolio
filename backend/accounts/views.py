@@ -4,11 +4,20 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .serializers import SignupSerializer, UserSerializer
+
+
+class ThrottledTokenObtainPairView(TokenObtainPairView):
+    """Login endpoint, rate-limited to slow brute-force / credential stuffing."""
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
 
 
 class SignupView(generics.CreateAPIView):
@@ -16,6 +25,8 @@ class SignupView(generics.CreateAPIView):
 
     serializer_class = SignupSerializer
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
 
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = self.get_serializer(data=request.data)
