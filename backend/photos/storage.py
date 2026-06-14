@@ -10,11 +10,16 @@ pointed at the *public* endpoint.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 
 import boto3
 from botocore.config import Config
 from django.conf import settings
+
+# Read S3/MinIO config from the environment so this works regardless of the
+# configured Django storage backend (e.g. in-memory storage during tests).
+BUCKET = os.environ.get("S3_BUCKET_NAME", "facefolio-photos")
 
 
 @lru_cache(maxsize=1)
@@ -22,9 +27,9 @@ def _public_client():
     return boto3.client(
         "s3",
         endpoint_url=settings.S3_PUBLIC_ENDPOINT_URL,
-        aws_access_key_id=settings.STORAGES["default"]["OPTIONS"]["access_key"],
-        aws_secret_access_key=settings.STORAGES["default"]["OPTIONS"]["secret_key"],
-        region_name=settings.STORAGES["default"]["OPTIONS"]["region_name"],
+        aws_access_key_id=os.environ.get("MINIO_ROOT_USER", "minioadmin"),
+        aws_secret_access_key=os.environ.get("MINIO_ROOT_PASSWORD", "minioadmin"),
+        region_name=os.environ.get("S3_REGION", "us-east-1"),
         config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
     )
 
@@ -33,10 +38,9 @@ def public_presigned_get(key: str, expires: int = 3600) -> str | None:
     """A browser-usable presigned GET URL for an object key, or None if no key."""
     if not key:
         return None
-    bucket = settings.STORAGES["default"]["OPTIONS"]["bucket_name"]
     return _public_client().generate_presigned_url(
         "get_object",
-        Params={"Bucket": bucket, "Key": key},
+        Params={"Bucket": BUCKET, "Key": key},
         ExpiresIn=expires,
     )
 
@@ -45,11 +49,10 @@ def public_presigned_download(key: str, filename: str, expires: int = 3600) -> s
     """Presigned GET URL that forces a download with a friendly filename (DL-01)."""
     if not key:
         return None
-    bucket = settings.STORAGES["default"]["OPTIONS"]["bucket_name"]
     return _public_client().generate_presigned_url(
         "get_object",
         Params={
-            "Bucket": bucket,
+            "Bucket": BUCKET,
             "Key": key,
             "ResponseContentDisposition": f'attachment; filename="{filename}"',
         },

@@ -33,5 +33,7 @@ python-dotenv>=1.0
 gunicorn>=22.0
 whitenoise>=6.6          # serve static files (incl. Django admin CSS) under gunicorn
 
-# Tooling
+# Tooling / tests
 ruff>=0.6
+pytest>=8.3
+pytest-django>=4.9
