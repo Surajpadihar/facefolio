@@ -25,10 +25,15 @@ class PublicPhotoSerializer(serializers.ModelSerializer):
 
 
 class MatchSerializer(PublicPhotoSerializer):
-    """A matched photo plus the confidence score for ranking/display."""
+    """A matched photo plus the confidence score and matched-face box for display."""
 
     score = serializers.FloatField(read_only=True)
+    bbox = serializers.SerializerMethodField()
 
     class Meta(PublicPhotoSerializer.Meta):
-        fields = (*PublicPhotoSerializer.Meta.fields, "score")
+        fields = (*PublicPhotoSerializer.Meta.fields, "score", "bbox")
         read_only_fields = fields
+
+    def get_bbox(self, obj):
+        # Relative [x1, y1, x2, y2] (0..1) of the matched face, set by the search view.
+        return getattr(obj, "match_bbox", None)

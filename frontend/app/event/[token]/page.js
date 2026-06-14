@@ -127,7 +127,7 @@ export default function EventPage() {
                 </div>
               </div>
             )}
-            {!result.no_match && (
+            {result.match_count > 0 && (
               <div>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-lg font-semibold">Found you in {result.match_count} photo{result.match_count === 1 ? "" : "s"} 🎉</h2>
@@ -136,8 +136,17 @@ export default function EventPage() {
                   </button>
                 </div>
                 <Grid token={token} photos={result.matches} />
-                <button className="btn-ghost mt-2" onClick={() => setStage("capture")}>Search again</button>
               </div>
+            )}
+            {result.maybe?.length > 0 && (
+              <div>
+                <h2 className="mb-1 text-lg font-semibold">You might also be in these</h2>
+                <p className="mb-3 text-sm text-slate-500">Lower-confidence matches — could be you in a group or side-on shot.</p>
+                <Grid token={token} photos={result.maybe} />
+              </div>
+            )}
+            {!result.no_match && (
+              <button className="btn-ghost" onClick={() => setStage("capture")}>Search again</button>
             )}
             {gallery && (
               <div>
@@ -153,11 +162,29 @@ export default function EventPage() {
 }
 
 function Grid({ token, photos }) {
+  // Masonry (natural aspect ratios) so the matched-face box overlay lines up exactly
+  // with the rendered image (a cropped square thumbnail would misplace it).
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div className="columns-2 gap-3 sm:columns-3">
       {photos.map((p) => (
-        <a key={p.id} href={downloadOneUrl(token, p.id)} className="group relative block overflow-hidden rounded-xl ring-1 ring-slate-200" title="Download">
-          <img src={p.thumbnail_url} alt="" className="aspect-square w-full object-cover transition group-hover:scale-105" />
+        <a
+          key={p.id}
+          href={downloadOneUrl(token, p.id)}
+          className="group relative mb-3 block break-inside-avoid overflow-hidden rounded-xl ring-1 ring-slate-200"
+          title="Download"
+        >
+          <img src={p.thumbnail_url} alt="" className="block w-full" />
+          {p.bbox && (
+            <span
+              className="pointer-events-none absolute rounded-sm border-2 border-brand-500"
+              style={{
+                left: `${p.bbox[0] * 100}%`,
+                top: `${p.bbox[1] * 100}%`,
+                width: `${(p.bbox[2] - p.bbox[0]) * 100}%`,
+                height: `${(p.bbox[3] - p.bbox[1]) * 100}%`,
+              }}
+            />
+          )}
           {typeof p.score === "number" && (
             <span className="badge absolute left-1.5 top-1.5 bg-white/90 text-slate-700">{(p.score * 100).toFixed(0)}% match</span>
           )}

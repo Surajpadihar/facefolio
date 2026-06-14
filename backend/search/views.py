@@ -83,7 +83,13 @@ class PublicGalleryView(APIView):
         event = _get_active_event(token)
         if event.is_expired:
             return Response({"detail": "This event has expired."}, status=status.HTTP_410_GONE)
-        photos = event.photos.filter(status=Photo.Status.INDEXED)
+        # Page the gallery so a huge event doesn't return thousands of photos at once.
+        try:
+            offset = max(0, int(request.query_params.get("offset", 0)))
+            limit = min(200, max(1, int(request.query_params.get("limit", 120))))
+        except ValueError:
+            offset, limit = 0, 120
+        photos = event.photos.filter(status=Photo.Status.INDEXED)[offset : offset + limit]
         return Response(PublicPhotoSerializer(photos, many=True).data)
 
 
@@ -147,7 +153,8 @@ class SelfieSearchView(APIView):
         query_vec = max(faces, key=lambda f: f["det_score"])["embedding"]
 
         c = _event_status(event)
-        threshold = settings.FACE_MATCH_THRESHOLD
+        match_threshold = settings.FACE_MATCH_THRESHOLD
+        maybe_threshold = settings.FACE_MATCH_MAYBE_THRESHOLD
 
         # Boost recall for this connection, then ANN search scoped to the event with the
         # inner-product operator that matches the index opclass.
@@ -159,28 +166,41 @@ class SelfieSearchView(APIView):
             .order_by("distance")[:SEARCH_CANDIDATES]
         )
 
-        # Group by photo, keeping the best score per photo. distance = -inner_product.
-        best: dict[int, float] = {}
+        # Group by photo, keeping the best-scoring face per photo. distance = -inner_product.
+        best: dict[int, tuple[float, list]] = {}
         for fe in candidates:
             sim = -float(fe.distance)
-            if sim >= threshold and sim > best.get(fe.photo_id, -1.0):
-                best[fe.photo_id] = sim
+            if sim >= maybe_threshold and sim > best.get(fe.photo_id, (-1.0,))[0]:
+                best[fe.photo_id] = (sim, fe.bbox)
         # query_vec falls out of scope here — never persisted.
 
-        ranked_ids = sorted(best, key=lambda pid: best[pid], reverse=True)
+        ranked_ids = sorted(best, key=lambda pid: best[pid][0], reverse=True)
         photos = {p.id: p for p in Photo.objects.filter(id__in=ranked_ids)}
-        matches = []
-        for pid in ranked_ids:
+
+        def build(pid):
             photo = photos[pid]
-            photo.score = round(best[pid], 4)
-            matches.append(photo)
+            sim, bbox = best[pid]
+            photo.score = round(sim, 4)
+            # Relative bbox (0..1) of the matched face, so the frontend can highlight it.
+            if photo.width and photo.height and bbox:
+                x1, y1, x2, y2 = bbox
+                photo.match_bbox = [x1 / photo.width, y1 / photo.height, x2 / photo.width, y2 / photo.height]
+            else:
+                photo.match_bbox = None
+            return photo
+
+        matches = [build(pid) for pid in ranked_ids if best[pid][0] >= match_threshold]
+        maybe = [build(pid) for pid in ranked_ids if maybe_threshold <= best[pid][0] < match_threshold]
 
         return Response(
             {
                 "match_count": len(matches),
-                "no_match": len(matches) == 0,  # SEARCH-04: frontend shows retry + browse gallery
+                "maybe_count": len(maybe),
+                # SEARCH-04: only a true dead-end (no confident AND no maybe) triggers the fallback UI.
+                "no_match": len(matches) == 0 and len(maybe) == 0,
                 "still_processing": c["pending"] > 0,  # SEARCH-05
                 "matches": MatchSerializer(matches, many=True).data,
+                "maybe": MatchSerializer(maybe, many=True).data,
             }
         )
 

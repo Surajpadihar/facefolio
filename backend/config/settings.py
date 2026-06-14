@@ -116,6 +116,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         # Guests are anonymous; cap selfie searches to deter scraping/abuse.
         "selfie": "20/min",
+        # Throttle signup/login to slow credential-stuffing / brute force.
+        "auth": "10/min",
     },
 }
 
@@ -193,6 +195,9 @@ DATA_UPLOAD_MAX_NUMBER_FILES = MAX_UPLOAD_BATCH + 5  # Django's own guard, just 
 # ~50 known-identity pairs from REAL event photos before trusting match quality. Too low → false
 # matches (stranger sees your photos); too high → misses. See .planning/STATE.md Phase 3 gate.
 FACE_MATCH_THRESHOLD = float(os.environ.get("FACE_MATCH_THRESHOLD", "0.35"))
+# Lower bound for the "you might also be in these" tier (maybe <= sim < match).
+# Helps surface group/side-angle shots a single strict cutoff would miss.
+FACE_MATCH_MAYBE_THRESHOLD = float(os.environ.get("FACE_MATCH_MAYBE_THRESHOLD", "0.22"))
 
 # --- Celery beat: periodic auto-delete of expired events (PRIV-03) ---
 CELERY_BEAT_SCHEDULE = {
